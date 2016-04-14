@@ -1,6 +1,21 @@
+from __future__ import division
 import nltk
+from nltk.util import ngrams
+from nltk.util import skipgrams
 import math
+import numpy
 
+def LCSLength (sen1, sen2):
+    n = len(sen1)
+    m = len(sen2)
+    aux = numpy.zeros((n, m))
+    for i in range(0, n):
+        for j in range(0, m):
+            if sen1[i] == sen2[j]:
+                aux[i][j] = aux[i-1][j-1] + 1
+            else:
+                aux[i][j] = max(aux[i][j-1], aux[i-1][j])
+    return aux[n-1][m-1]
 
 def nCr(n,r):
     f = math.factorial
@@ -32,17 +47,13 @@ def computeWordOverlapFeatures(sentence1, sentence2):
 
     wordOverlapRatio = (count*2) / (len(tokens1) + len(tokens2))
 
-    trigrams1 = nltk.util.trigrams(tokens1)
-    trigrams2 = nltk.util.trigrams(tokens2)
+    trigrams1 = ngrams(tokens1, 3)
+    trigrams2 = ngrams(tokens2, 3)
 
-    count = 0
-    #TODO: find maximum "substring"
-    for gram1 in trigrams1:
-        pass
+    lcsLen = LCSLength(sentence1, sentence2)
 
-
-    skipgrams1 = nltk.util.skipgrams(tokens1, 2, len(tokens1))
-    skipgrams2 = nltk.util.skipgrams(tokens2, 2, len(tokens2))
+    skipgrams1 = skipgrams(tokens1, 2, len(tokens1))
+    skipgrams2 = skipgrams(tokens2, 2, len(tokens2))
 
     count = 0
     for gram1 in skipgrams1:
@@ -50,12 +61,11 @@ def computeWordOverlapFeatures(sentence1, sentence2):
             if gram1 == gram2:
                 count += 1
 
-    skipgramT1 = count / nCr(len(tokens1))
-    skipgramT2 = count / nCr(len(tokens2))
+    skipgramT1 = count / nCr(len(tokens1), count)
+    skipgramT2 = count / nCr(len(tokens2), count)
 
 
-
-    return wordOverlapRatio, skipgramT1 / skipgramT2
+    return wordOverlapRatio, skipgramT1, skipgramT2, lcsLen
 
 def computeTextSimilarityFeatures(sentence1, sentence2):
     pass
