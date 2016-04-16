@@ -10,6 +10,7 @@ from sklearn import linear_model
 from treetagger import TreeTagger
 from itertools import product
 import numpy as np
+import pickle
 import text2int as t2i
 
 def combinations(n, k):
@@ -83,50 +84,59 @@ def computeSentenceSimilarityFeatures(sentence1, sentence2):
 
 
 # Uses treetagger-python (Installation https://github.com/miotto/treetagger-python ; http://www.cis.uni-muenchen.de/~schmid/tools/TreeTagger/)
+semanticsimilarity_lookuptable = {}
+
 def computeSemanticSimilarityFeatures(sentence1, sentence2):
     features = [0] * 2
 
-    tt = TreeTagger(language='english')
-    tags1 = tt.tag(sentence1)
-    tags2 = tt.tag(sentence2)
+    if (sentence1 + sentence2) in semanticsimilarity_lookuptable:
+        features = semanticsimilarity_lookuptable[sentence1 + sentence2]
+    else:
+        tt = TreeTagger(language='english')
+        tags1 = tt.tag(sentence1)
+        tags2 = tt.tag(sentence2)
+        # Feature: noun/web semantic similarity
 
-    # Feature: noun/web semantic similarity
+        # Get Synonym set
+        def synSet(tags):
+            for word in tags:
+                # Only compare Nouns or Verbs
+                if word[1][0] != 'N' and word[1][:2] != 'VV':
+                    continue
 
-    # Get Synonym set
-    def synSet(tags):
-        for word in tags:
-            # Only compare Nouns or Verbs
-            if word[1][0] != 'N' and word[1][:2] != 'VV':
+                word.append(wordnet.synsets(word[2]))
+
+        synSet(tags=tags1)
+        synSet(tags=tags2)
+
+        sims = []
+
+        # TODO: Maybe do not use product() instead use max() similarity
+        for word1, word2 in product(tags1, tags2):
+            type1 = word1[1]
+            type2 = word2[1]
+
+            if type1[0] != 'N' and type1[:2] != 'VV' or type1 != type2:
                 continue
 
-            word.append(wordnet.synsets(word[2]))
+            similarity = 0
+            for sense1, sense2 in product(word1[3], word2[3]):
+                similarity = max(similarity, wordnet.wup_similarity(sense1, sense2))
 
-    synSet(tags=tags1)
-    synSet(tags=tags2)
-
-    sims = []
-
-    # TODO: Maybe do not use product() instead use max() similarity
-    for word1, word2 in product(tags1, tags2):
-        type1 = word1[1]
-        type2 = word2[1]
-
-        if type1[0] != 'N' and type1[:2] != 'VV' or type1 != type2:
-            continue
-
-        similarity = 0
-        for sense1, sense2 in product(word1[3], word2[3]):
-            similarity = max(similarity, wordnet.wup_similarity(sense1, sense2))
-
-        sims.append(similarity)
+            sims.append(similarity)
 
 
-    features[0] = np.sum(sims) / len(sims)
+        features[0] = np.sum(sims) / len(sims)
 
-    # Feature: Cardinal number similarity
-    for word1 in tags1:
-        if word1[1] == 'CD':
-            pass
+        # Feature: Cardinal number similarity
+        for word1 in tags1:
+            if word1[1] == 'CD':
+                pass # TODO
+
+        # Feature: Proper Name
+        # TODO
+
+        semanticsimilarity_lookuptable[sentence1 + sentence2] = features
 
     return features
 
@@ -137,14 +147,18 @@ def readData():
     trainClass = [0] * 4076
     testFeat = []
     testClass = [0] * 1725
+    semanticsimilarity_lookuptable = {}
 
     f = open("msr_paraphrase_train.txt", "r")
     f.readline() # ignore header
     for i in range(0,4076):
         tokens = f.readline().strip().split('\t')
         trainClass[i] = int(tokens[0])
-        trainFeat.append(computeSentenceSimilarityFeatures(tokens[3], tokens[4])
-                         .extend(computeSemanticSimilarityFeatures(tokens[3], tokens[4])))
+        print "Training ", i, 4076, i / 4076
+        features = computeSentenceSimilarityFeatures(tokens[3], tokens[4])
+        features.extend(computeSemanticSimilarityFeatures(tokens[3], tokens[4]))
+
+        trainFeat.append(features)
     f.close()
 
     f = open("msr_paraphrase_test.txt", "r")
@@ -152,8 +166,11 @@ def readData():
     for i in range(0,1725):
         tokens = f.readline().strip().split('\t')
         testClass[i] = int(tokens[0])
-        testFeat.append(computeSentenceSimilarityFeatures(tokens[3], tokens[4])
-                        .extend(computeSemanticSimilarityFeatures(tokens[3], tokens[4])))
+
+        features = computeSentenceSimilarityFeatures(tokens[3], tokens[4])
+        features.extend(computeSemanticSimilarityFeatures(tokens[3], tokens[4]))
+
+        testFeat.append(features)
     f.close()
 
     return trainFeat, trainClass, testFeat, testClass

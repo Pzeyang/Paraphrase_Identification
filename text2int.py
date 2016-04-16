@@ -1,10 +1,10 @@
 def text2int(textnum, numwords={}):
     if not numwords:
         units = [
-        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
-        "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
-        "sixteen", "seventeen", "eighteen", "nineteen",
-        ]
+            "zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
+            "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
+            "sixteen", "seventeen", "eighteen", "nineteen",
+            ]
 
         tens = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
 
@@ -34,8 +34,8 @@ def text2int(textnum, numwords={}):
 
             scale, increment = numwords[word]
 
-         current = current * scale + increment
-         if scale > 100:
+        current = current * scale + increment
+        if scale > 100:
             result += current
             current = 0
 
