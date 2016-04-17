@@ -10,6 +10,7 @@ from sklearn import linear_model
 from treetagger import TreeTagger
 from itertools import product
 import numpy as np
+import sys
 import pickle
 import text2int as t2i
 
@@ -84,17 +85,23 @@ def computeSentenceSimilarityFeatures(sentence1, sentence2):
 
 
 # Uses treetagger-python (Installation https://github.com/miotto/treetagger-python ; http://www.cis.uni-muenchen.de/~schmid/tools/TreeTagger/)
-semanticsimilarity_lookuptable = {}
+try:
+    semanticsimilarity_lookuptable = pickle.load(open('semanticsimilarity_lookuptable.pkl', 'rb'))
+except Exception:
+    semanticsimilarity_lookuptable = {}
 
 def computeSemanticSimilarityFeatures(sentence1, sentence2):
-    features = [0] * 2
+    features = [0] * 3
 
     if (sentence1 + sentence2) in semanticsimilarity_lookuptable:
         features = semanticsimilarity_lookuptable[sentence1 + sentence2]
     else:
+        def prepareSentence(sentence):
+            return sentence.replace('-', ' ').replace('$', ' ')
+
         tt = TreeTagger(language='english')
-        tags1 = tt.tag(sentence1)
-        tags2 = tt.tag(sentence2)
+        tags1 = tt.tag(prepareSentence(sentence1))
+        tags2 = tt.tag(prepareSentence(sentence2.replace('-', ' ')))
         # Feature: noun/web semantic similarity
 
         # Get Synonym set
@@ -129,12 +136,65 @@ def computeSemanticSimilarityFeatures(sentence1, sentence2):
         features[0] = np.sum(sims) / len(sims)
 
         # Feature: Cardinal number similarity
-        for word1 in tags1:
-            if word1[1] == 'CD':
-                pass # TODO
+        def findCardinals(tags):
+            cardinals = []
+            for index, word1 in enumerate(tags):
+                if word1[1] == 'CD':
+                    # is "more", "over" or "above" before?
+                    before = [a[0] for a in tags[max(index-2, 0):index]]
+
+                    try:
+                        val = float(word1[0])
+                    except ValueError:
+                        val = t2i.text2int(word1[0])
+
+                    maxValue = minValue = val
+
+                    if ("more" in before) or ("over" in before) or ("above" in before) or ("greater" in before):
+                        maxValue = sys.maxint
+                        minValue += 1
+                    elif ("less" in before) or ("under" in before) or ("below" in before) or ("smaller" in before):
+                        minValue = sys.minint
+                        maxValue -= 1
+
+                    cardinals.append([minValue, maxValue])
+            return cardinals
+
+        cardinals1 = findCardinals(tags=tags1)
+        cardinals2 = findCardinals(tags=tags2)
+
+        def countCDMatches(cardinals1, cardinals2):
+            count = 0
+            for cd1 in cardinals1:
+                for cd2 in cardinals2:
+                    if cd1[0] == cd2[0] and cd1[1] == cd2[1]:
+                        count += 1
+                        break
+            return count
+
+        features[1] = (countCDMatches(cardinals1, cardinals2) + countCDMatches(cardinals2, cardinals1)) / (len(cardinals1) + len(cardinals2)) if len(cardinals1) + len(cardinals2) > 0 else 1
 
         # Feature: Proper Name
-        # TODO
+        def findProperNouns(tags):
+            nouns = []
+            for word in tags:
+                if word[1] == 'NP' or word[1] == 'NPS':
+                    nouns.append(word[0])
+            return nouns
+
+        def countNounMatches(nouns1, nouns2):
+            count = 0
+            for noun1 in nouns1:
+                for noun2 in nouns2:
+                    if noun1 == noun2:
+                        count += 1
+                        break
+            return count
+
+        nouns1 = findProperNouns(tags1)
+        nouns2 = findProperNouns(tags2)
+
+        features[2] = (countNounMatches(nouns1, nouns2) + countNounMatches(nouns2, nouns1)) / (len(nouns1) + len(nouns2)) if len(nouns1) + len(nouns2) > 0 else 1
 
         semanticsimilarity_lookuptable[sentence1 + sentence2] = features
 
@@ -147,7 +207,6 @@ def readData():
     trainClass = [0] * 4076
     testFeat = []
     testClass = [0] * 1725
-    semanticsimilarity_lookuptable = {}
 
     f = open("msr_paraphrase_train.txt", "r")
     f.readline() # ignore header
@@ -159,7 +218,15 @@ def readData():
         features.extend(computeSemanticSimilarityFeatures(tokens[3], tokens[4]))
 
         trainFeat.append(features)
+
+        if i % 100 == 99:
+            print("Dump Similarity Table")
+            pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
     f.close()
+
+    pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
+
+
 
     f = open("msr_paraphrase_test.txt", "r")
     f.readline() # ignore header

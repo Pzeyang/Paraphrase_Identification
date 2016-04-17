@@ -18,9 +18,10 @@ def text2int(textnum, numwords={}):
     ordinal_words = {'first':1, 'second':2, 'third':3, 'fifth':5, 'eighth':8, 'ninth':9, 'twelfth':12}
     ordinal_endings = [('ieth', 'y'), ('th', '')]
 
-    textnum = textnum.replace('-', ' ')
+    textnum = textnum.replace('-', ' ').replace(',', ' ').replace('.', ' ')
 
-    current = result = 0
+    current = 1
+    result = 0
     for word in textnum.split():
         if word in ordinal_words:
             scale, increment = (1, ordinal_words[word])
@@ -30,7 +31,7 @@ def text2int(textnum, numwords={}):
                     word = "%s%s" % (word[:-len(ending)], replacement)
 
             if word not in numwords:
-                raise Exception("Illegal word: " + word)
+                break
 
             scale, increment = numwords[word]
 
