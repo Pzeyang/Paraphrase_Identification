@@ -100,15 +100,16 @@ def computeSemanticSimilarityFeatures(sentence1, sentence2):
             return sentence.replace('-', ' ').replace('$', ' ')
 
         tt = TreeTagger(language='english')
-        tags1 = tt.tag(prepareSentence(sentence1))
-        tags2 = tt.tag(prepareSentence(sentence2.replace('-', ' ')))
+        tags1 = [a for a in tt.tag(prepareSentence(sentence1)) if len(a) > 1]
+        tags2 = [a for a in tt.tag(prepareSentence(sentence2)) if len(a) > 1]
         # Feature: noun/web semantic similarity
 
         # Get Synonym set
         def synSet(tags):
             for word in tags:
                 # Only compare Nouns or Verbs
-                if word[1][0] != 'N' and word[1][:2] != 'VV':
+                # Python does not have short circuit operators, wtf?!
+                if (word[1][0] != 'N' if len(word[1]) >= 1 else 1) and (word[1][:2] != 'VV' if len(word[1]) >= 2 else 1):
                     continue
 
                 word.append(wordnet.synsets(word[2]))
@@ -133,7 +134,7 @@ def computeSemanticSimilarityFeatures(sentence1, sentence2):
             sims.append(similarity)
 
 
-        features[0] = np.sum(sims) / len(sims)
+        features[0] = np.sum(sims) / len(sims) if len(sims) > 0 else 0
 
         # Feature: Cardinal number similarity
         def findCardinals(tags):
@@ -154,7 +155,7 @@ def computeSemanticSimilarityFeatures(sentence1, sentence2):
                         maxValue = sys.maxint
                         minValue += 1
                     elif ("less" in before) or ("under" in before) or ("below" in before) or ("smaller" in before):
-                        minValue = sys.minint
+                        minValue = -sys.maxint - 1
                         maxValue -= 1
 
                     cardinals.append([minValue, maxValue])
@@ -219,9 +220,9 @@ def readData():
 
         trainFeat.append(features)
 
-        if i % 100 == 99:
-            print("Dump Similarity Table")
-            pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
+        #if i % 10 == 9:
+        #    print("Dump Similarity Table")
+        #   pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
     f.close()
 
     pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
@@ -231,6 +232,8 @@ def readData():
     f = open("msr_paraphrase_test.txt", "r")
     f.readline() # ignore header
     for i in range(0,1725):
+        print "Testing ", i, 4076, i / 4076
+
         tokens = f.readline().strip().split('\t')
         testClass[i] = int(tokens[0])
 
@@ -238,8 +241,15 @@ def readData():
         features.extend(computeSemanticSimilarityFeatures(tokens[3], tokens[4]))
 
         testFeat.append(features)
+
+        #if i % 10 == 9:
+        #print("Dump Similarity Table")
+        #pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
     f.close()
 
+    pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
+
+    print "Finished"
     return trainFeat, trainClass, testFeat, testClass
 
 trainFeat, trainClass, testFeat, testClass = readData()
