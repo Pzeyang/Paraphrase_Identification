@@ -49,7 +49,7 @@ def learnMaxEnt(trainFeat, trainClass, testFeat):
 # http://www.kozareva.com/papers/fintalKozareva.pdf
 # http://web.science.mq.edu.au/~rdale/publications/papers/2006/swan-final.pdf
 def computeSentenceSimilarityFeatures(sentence1, sentence2):
-    features = [0] * 6
+    features = [0] * 7
     tokenizer = RegexpTokenizer(r'\w+')
     words1 = tokenizer.tokenize(sentence1)
     words2 = tokenizer.tokenize(sentence2)
@@ -70,9 +70,9 @@ def computeSentenceSimilarityFeatures(sentence1, sentence2):
     features[2] = sentence_bleu([sentence1], sentence2)
     features[3] = sentence_bleu([sentence2], sentence1)
 
-    # From arrays of words, pairs of two words, separated by len at most 4
-    skipgrams1 = skipgrams(words1, 2, 4)
-    skipgrams2 = skipgrams(words2, 2, 4)
+    # Obtain pairs of adjacent words
+    skipgrams1 = skipgrams(words1, 2, 0)
+    skipgrams2 = skipgrams(words2, 2, 0)
 
     count = 0
     for gram1 in skipgrams1:
@@ -83,7 +83,11 @@ def computeSentenceSimilarityFeatures(sentence1, sentence2):
     features[4] = count / combinations(n, count)
     features[5] = count / combinations(m, count)
 
-    # Ratio of characters might also work?
+
+    if (n > m):
+        features[6] = m / n
+    else:
+        features[6] = n / m
 
     return features
 
@@ -233,9 +237,8 @@ def readData():
     for i in range(0,4076):
         tokens = f.readline().strip().split('\t')
         trainClass[i] = int(tokens[0])
-        print "Training ", i, 4076, i / 4076
         features = computeSentenceSimilarityFeatures(tokens[3], tokens[4])
-        features.extend(computeSemanticSimilarityFeatures(tokens[3], tokens[4]))
+        #features.extend(computeSemanticSimilarityFeatures(tokens[3], tokens[4]))
 
         trainFeat.append(features)
 
@@ -251,13 +254,11 @@ def readData():
     f = open("msr_paraphrase_test.txt", "r")
     f.readline() # ignore header
     for i in range(0,1725):
-        print "Testing ", i, 4076, i / 4076
-
         tokens = f.readline().strip().split('\t')
         testClass[i] = int(tokens[0])
 
         features = computeSentenceSimilarityFeatures(tokens[3], tokens[4])
-        features.extend(computeSemanticSimilarityFeatures(tokens[3], tokens[4]))
+        #features.extend(computeSemanticSimilarityFeatures(tokens[3], tokens[4]))
 
         testFeat.append(features)
 
@@ -268,11 +269,10 @@ def readData():
 
     pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
 
-    print "Finished"
     return trainFeat, trainClass, testFeat, testClass
 
 trainFeat, trainClass, testFeat, testClass = readData()
-predictedClass = learnAll(trainFeat, trainClass, testFeat)
+predictedClass = learnSVM(trainFeat, trainClass, testFeat)
 
 count = 0
 for i in range(0,1725):
