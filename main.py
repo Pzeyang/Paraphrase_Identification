@@ -14,6 +14,7 @@ import sys
 import pickle
 import text2int as t2i
 import copy
+import distribFeat
 
 def combinations(n, k):
     f = math.factorial
@@ -45,8 +46,8 @@ def learnMaxEnt(trainFeat, trainClass, testFeat):
     model.fit(trainFeat, trainClass)
     return model.predict(testFeat)
 
-paraphraseMap = pickle.load(open("paraphraseMap", "rb"))
-notParaphrMap = pickle.load(open("notParaphrMap", "rb"))
+#paraphraseMap = pickle.load(open("paraphraseMap", "rb"))
+#notParaphrMap = pickle.load(open("notParaphrMap", "rb"))
 # Comprising sage advice from:
 # http://www.kozareva.com/papers/fintalKozareva.pdf
 # http://web.science.mq.edu.au/~rdale/publications/papers/2006/swan-final.pdf
@@ -111,10 +112,10 @@ def computeSentenceSimilarityFeatures(sentence1, sentence2):
 
 
 # Uses treetagger-python (Installation https://github.com/miotto/treetagger-python ; http://www.cis.uni-muenchen.de/~schmid/tools/TreeTagger/)
-try:
-    semanticsimilarity_lookuptable = pickle.load(open('semanticsimilarity_lookuptable.pkl', 'rb'))
-except Exception:
-    semanticsimilarity_lookuptable = {}
+#try:
+#    semanticsimilarity_lookuptable = pickle.load(open('semanticsimilarity_lookuptable.pkl', 'rb'))
+#except Exception:
+#    semanticsimilarity_lookuptable = {}
 
 def computeSemanticSimilarityFeatures(sentence1, sentence2):
     features = [0] * 6
@@ -289,7 +290,7 @@ def readData():
 
     return trainFeat, trainClass, testFeat, testClass
 
-trainFeat, trainClass, testFeat, testClass = readData()
+trainFeat, trainClass, testFeat, testClass = distribFeat.getData()#readData()
 predictedClass = learnSVM(trainFeat, trainClass, testFeat)
 
 count = 0
