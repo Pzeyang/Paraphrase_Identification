@@ -44,6 +44,8 @@ def learnMaxEnt(trainFeat, trainClass, testFeat):
     model.fit(trainFeat, trainClass)
     return model.predict(testFeat)
 
+paraphraseMap = pickle.load(open("paraphraseMap", "rb"))
+notParaphrMap = pickle.load(open("notParaphrMap", "rb"))
 # Comprising sage advice from:
 # http://www.kozareva.com/papers/fintalKozareva.pdf
 # http://web.science.mq.edu.au/~rdale/publications/papers/2006/swan-final.pdf
@@ -85,6 +87,22 @@ def computeSentenceSimilarityFeatures(sentence1, sentence2):
         features[6] = m / n;
     else:
         features[6] = n / m;
+
+    """count = 0
+    for word2 in words2:
+        p = paraphraseMap[word2] if word2 in paraphraseMap else 0
+        q = notParaphrMap[word2] if word2 in notParaphrMap else 0
+        if q == 0:
+            kl = 1
+        elif p == 0:
+            kl = 0
+        else:
+            kl = p * math.log(p/q) + (1-p) * math.log((1-p)/(1-q))
+        for word1 in sentence1:
+            if word1 == word2:
+                count += kl
+    features[7] = count / n
+    features[8] = count / m"""
 
     return features
 
