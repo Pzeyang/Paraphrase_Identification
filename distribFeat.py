@@ -46,7 +46,7 @@ def distribFeat(sentences, K):
         features = [0] * (K * 2)
         for j in range(0, K):
             features[j] = W[i * 2][j] + W[i * 2 + 1][j]
-            features[j * 2] = math.abs(W[i * 2][j] - W[i * 2 + 1][j])
+            features[j * 2] = abs(W[i * 2][j] - W[i * 2 + 1][j])
 
     return features
 

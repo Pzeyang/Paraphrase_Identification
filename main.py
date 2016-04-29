@@ -7,6 +7,8 @@ import math
 from sklearn import neighbors
 from sklearn import svm
 from sklearn import linear_model
+from keras.layers.core import Dense, Activation
+from keras.models import Sequential
 from treetagger import TreeTagger
 from itertools import product
 import numpy as np
@@ -45,6 +47,18 @@ def learnMaxEnt(trainFeat, trainClass, testFeat):
     model = linear_model.LogisticRegression(n_jobs=-1)
     model.fit(trainFeat, trainClass)
     return model.predict(testFeat)
+
+def learnNN(trainFeat, trainClass, testFeat):
+    hn = 20
+    model = Sequential()
+    model.add(Dense(input_dim = len(trainFeat[0]), output_dim = hn))
+    model.add(Activation('sigmoid'))
+    model.add(Dense(1)) # output layer
+    model.add(Activation('softmax'))
+    model.compile(loss='mean_squared_error', optimizer='sgd')
+
+    model.fit(trainFeat, trainClass, nb_epochs=2)
+    return model.predict_classes(testFeat)
 
 #paraphraseMap = pickle.load(open("paraphraseMap", "rb"))
 #notParaphrMap = pickle.load(open("notParaphrMap", "rb"))
