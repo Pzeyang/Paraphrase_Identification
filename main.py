@@ -57,7 +57,7 @@ def learnNN(trainFeat, trainClass, testFeat):
     model.add(Activation('softmax'))
     model.compile(loss='mean_squared_error', optimizer='sgd')
 
-    model.fit(trainFeat, trainClass, nb_epochs=2)
+    model.fit(trainFeat, trainClass, nb_epoch=2)
     return model.predict_classes(testFeat)
 
 #paraphraseMap = pickle.load(open("paraphraseMap", "rb"))
@@ -275,12 +275,12 @@ def readData():
 
         trainFeat.append(features)
 
-        if i % 10 == 9:
-            print("Dump Similarity Table")
-            pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
+        #if i % 10 == 9:
+            #print("Dump Similarity Table")
+            #pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
     f.close()
 
-    pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
+    #pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
 
 
 
@@ -295,16 +295,25 @@ def readData():
 
         testFeat.append(features)
 
-        if i % 10 == 9:
-            print("Dump Similarity Table")
-            pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
+        #if i % 10 == 9:
+            #print("Dump Similarity Table")
+            #pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
     f.close()
 
-    pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
+    #pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
 
     return trainFeat, trainClass, testFeat, testClass
 
-trainFeat, trainClass, testFeat, testClass = distribFeat.getData()#readData()
+#trainFeat, trainClass, testFeat, testClass = distribFeat.getData()
+trainFeat, trainClass, testFeat, testClass = readData()
+#pickle.dump(trainFeat, open('trainFeat', 'wb'))
+#pickle.dump(trainClass, open('trainClass', 'wb'))
+#pickle.dump(testFeat, open('testFeat', 'wb'))
+#pickle.dump(testClass, open('testClass', 'wb'))
+#trainFeat = pickle.load(open('trainFeat', 'rb'))
+#trainClass = pickle.load(open('trainClass', 'rb'))
+#testFeat = pickle.load(open('testFeat', 'rb'))
+#testClass = pickle.load(open('testClass', 'rb'))
 predictedClass = learnSVM(trainFeat, trainClass, testFeat)
 
 count = 0

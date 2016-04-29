@@ -38,15 +38,19 @@ def distribFeat(sentences, K):
 
     # Step 2: Matrix factorization
     factory = NMF(n_components = 100)
-    W = factory.fit_transform(M)
-    print(W.shape)
+    factory.fit_transform(M) # M = W*H , returns W, which we don't need
+    H = factory.components_ # should be size K * n
 
     #Step 3: obtain feature set for paraphrase pair
-    for i in range(0, int(n/2)):
-        features = [0] * (K * 2)
+    features = []
+    i = 0
+    while i < n:
+        feat = [0] * (K * 2)
         for j in range(0, K):
-            features[j] = W[i * 2][j] + W[i * 2 + 1][j]
-            features[j * 2] = abs(W[i * 2][j] - W[i * 2 + 1][j])
+            feat[j] = H[j][i] + H[j][i + 1]
+            feat[j * 2] = abs(H[j][i] - H[j][i + 1])
+        i += 2 # step to next pair of sentences
+        features.append(feat)
 
     return features
 
@@ -58,7 +62,7 @@ def getData():
     trainClass = [0] * 4076
     for i in range(0,4076):
         tokens = f.readline().strip().split('\t')
-        trainClass = int(tokens[0])
+        trainClass[i] = int(tokens[0])
         sentences.append(tokenizer.tokenize(tokens[3].lower()))
         sentences.append(tokenizer.tokenize(tokens[4].lower()))
 
@@ -71,7 +75,7 @@ def getData():
     testClass = [0] * 1725
     for i in range(0,1725):
         tokens = f.readline().strip().split('\t')
-        testClass = int(tokens[0])
+        testClass[i] = int(tokens[0])
         sentences.append(tokenizer.tokenize(tokens[3].lower()))
         sentences.append(tokenizer.tokenize(tokens[4].lower()))
 
