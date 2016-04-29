@@ -38,15 +38,16 @@ def distribFeat(sentences, K):
 
     # Step 2: Matrix factorization
     factory = NMF(n_components = 100)
-    W = factory.fit_transform(M)
-    print(W.shape)
+    factory.fit_transform(M) # M = W*H , returns W, which we don't need
+    H = factory.components_ # should be size K * n
 
     #Step 3: obtain feature set for paraphrase pair
-    for i in range(0, int(n/2)):
+    while i < n:
         features = [0] * (K * 2)
         for j in range(0, K):
-            features[j] = W[i * 2][j] + W[i * 2 + 1][j]
-            features[j * 2] = math.abs(W[i * 2][j] - W[i * 2 + 1][j])
+            features[j] = W[i][j] + W[i + 1][j]
+            features[j * 2] = math.abs(W[i][j] - W[i + 1][j])
+        i += 2 # step to next pair of sentences
 
     return features
 
