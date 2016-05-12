@@ -7,8 +7,8 @@ import math
 from sklearn import neighbors
 from sklearn import svm
 from sklearn import linear_model
-from keras.layers.core import Dense, Activation
-from keras.models import Sequential
+#from keras.layers.core import Dense, Activation
+#from keras.models import Sequential
 from treetagger import TreeTagger
 from itertools import product
 import numpy as np
@@ -16,7 +16,8 @@ import sys
 import pickle
 import text2int as t2i
 import copy
-import distribFeat
+import word2vec
+import os
 
 def combinations(n, k):
     f = math.factorial
@@ -126,15 +127,29 @@ def computeSentenceSimilarityFeatures(sentence1, sentence2):
 
 
 # Uses treetagger-python (Installation https://github.com/miotto/treetagger-python ; http://www.cis.uni-muenchen.de/~schmid/tools/TreeTagger/)
-#try:
-#    semanticsimilarity_lookuptable = pickle.load(open('semanticsimilarity_lookuptable.pkl', 'rb'))
-#except Exception:
-#    semanticsimilarity_lookuptable = {}
+try:
+    semanticsimilarity_lookuptable = pickle.load(open('semanticsimilarity_lookuptable.pkl', 'rb'))
+except Exception:
+    semanticsimilarity_lookuptable = {}
+
+print "Build Word2Vec Corpus"
+dir = os.path.dirname(os.path.abspath(__file__))
+word2vec.word2phrase(dir + '/text8', dir + '/text8-phrases', verbose=True)
+try:
+    # on OSX for some reason this does not work
+    word2vec.word2phrase(dir + '/text8', dir + '/text8-phrases', verbose=True)
+    word2vec.word2vec(dir + '/text8-phrases', dir + '/text8.bin', size=100, verbose=True)
+except Exception:
+    word2vec.word2phrase(dir + '/text8', dir + '/text8-phrases', verbose=True)
+
+model = word2vec.load(dir + '/text8.bin')
+print model.vocab
+print "Finish"
 
 def computeSemanticSimilarityFeatures(sentence1, sentence2):
-    features = [0] * 6
+    features = [0] * 7
 
-    # Maybe: Word2Vec
+    # Maybe: Word2Vec and Bipartite
 
     if (sentence1 + sentence2) not in semanticsimilarity_lookuptable:
         def prepareSentence(sentence):
@@ -164,29 +179,42 @@ def computeSemanticSimilarityFeatures(sentence1, sentence2):
     synSet(tags=tags1)
     synSet(tags=tags2)
 
-    simsMax = []
-    simsAvg = []
+    simsMaxNoun = []
+    simsAvgNoun = []
+    simsMaxVerb = []
+    simsAvgVerb = []
 
     for word1, word2 in product(tags1, tags2):
         type1 = word1[1]
         type2 = word2[1]
 
-        if type1[0] != 'N' and type1[:2] != 'VV' or type1 != type2:
+        if (type1[0] != 'N' and type1[:2] != 'VV') or type1 != type2:
             continue
 
         similarityMax = 0
         similarityAvg = 0
-        for sense1, sense2 in product(word1[3], word2[3]):
-            sim = wordnet.wup_similarity(sense1, sense2)
-            similarityMax = max(similarityMax, sim)
-            similarityAvg += sim if sim is not None else 0
+        if word1[2] == word2[2]:
+            similarityAvg = 1
+            similarityMax = 1
+        else:
+            for sense1, sense2 in product(word1[3], word2[3]):
+                sim = wordnet.wup_similarity(sense1, sense2)
+                similarityMax = max(similarityMax, sim)
+                similarityAvg += sim if sim is not None else 0
 
-        simsMax.append(similarityMax)
-        simsAvg.append(similarityAvg / (len(word1[3]) + len(word2[3])) if len(word1[3]) + len(word2[3]) > 0 else 0)
+        if type1[0] != 'N':
+            simsMaxNoun.append(similarityMax)
+            simsAvgNoun.append(similarityAvg / (len(word1[3]) + len(word2[3])) if len(word1[3]) + len(word2[3]) > 0 else 0)
+        else:
+            simsMaxVerb.append(similarityMax)
+            simsAvgVerb.append(similarityAvg / (len(word1[3]) + len(word2[3])) if len(word1[3]) + len(word2[3]) > 0 else 0)
 
 
-    features[0] = np.sum(simsMax) / len(simsMax) if len(simsMax) > 0 else 0
-    features[1] = np.sum(simsAvg) / len(simsAvg) if len(simsAvg) > 0 else 0
+    features[0] = np.sum(simsMaxNoun) / len(simsMaxNoun) if len(simsMaxNoun) > 0 else 0
+    features[1] = np.sum(simsAvgNoun) / len(simsAvgNoun) if len(simsAvgNoun) > 0 else 0
+
+    features[2] = np.sum(simsMaxVerb) / len(simsMaxVerb) if len(simsMaxVerb) > 0 else 0
+    features[3] = np.sum(simsAvgVerb) / len(simsAvgVerb) if len(simsAvgVerb) > 0 else 0
 
     # Feature: Cardinal number similarity
     def findCardinals(tags):
@@ -225,13 +253,12 @@ def computeSemanticSimilarityFeatures(sentence1, sentence2):
                     break
         return count
 
-    #features[2] = (countCDMatches(cardinals1, cardinals2) + countCDMatches(cardinals2, cardinals1)) / (len(cardinals1) + len(cardinals2)) if len(cardinals1) + len(cardinals2) > 0 else 1
-    features[2] = countCDMatches(cardinals1, cardinals2) / len(cardinals1) if len(cardinals1) > 0 else 1
-    features[3] = countCDMatches(cardinals2, cardinals1) / len(cardinals2) if len(cardinals2) > 0 else 1
+    features[4] = (countCDMatches(cardinals1, cardinals2) + countCDMatches(cardinals2, cardinals1)) / (len(cardinals1) + len(cardinals2)) if len(cardinals1) + len(cardinals2) > 0 else 1
+    #features[2] = countCDMatches(cardinals1, cardinals2) / len(cardinals1) if len(cardinals1) > 0 else 1
+    #features[3] = countCDMatches(cardinals2, cardinals1) / len(cardinals2) if len(cardinals2) > 0 else 1
 
 
     # Feature: Proper Name
-    # TODO: Find Proper names
     def findProperNouns(tags):
         nouns = []
         for word in tags:
@@ -251,9 +278,33 @@ def computeSemanticSimilarityFeatures(sentence1, sentence2):
     nouns1 = findProperNouns(tags1)
     nouns2 = findProperNouns(tags2)
 
-    #features[4] = (countNounMatches(nouns1, nouns2) + countNounMatches(nouns2, nouns1)) / (len(nouns1) + len(nouns2)) if len(nouns1) + len(nouns2) > 0 else 1
-    features[4] = countNounMatches(nouns1, nouns2) / len(nouns1) if len(nouns1) > 0 else 1
-    features[5] = countNounMatches(nouns2, nouns1) / len(nouns2) if len(nouns2) > 0 else 1
+    features[5] = (countNounMatches(nouns1, nouns2) + countNounMatches(nouns2, nouns1)) / (len(nouns1) + len(nouns2)) if len(nouns1) + len(nouns2) > 0 else 1
+    # features[4] = countNounMatches(nouns1, nouns2) / len(nouns1) if len(nouns1) > 0 else 1
+    # features[5] = countNounMatches(nouns2, nouns1) / len(nouns2) if len(nouns2) > 0 else 1
+
+    # Feature: Word2Vec (all)
+    meaning1 = np.zeros(model.vectors.shape[1])
+    for word in tags1:
+        if word[2] in model:
+            meaning1 += model[word[2]]
+
+    meaning2 = np.zeros(model.vectors.shape[1])
+    for word in tags2:
+        if word[2] in model:
+            meaning2 += model[word[2]]
+
+    # Feature: Word2Vec (Nouns+Verbs)
+    meaning1 = np.zeros(model.vectors.shape[1])
+    for word in tags1:
+        if word[2] in model:
+            meaning1 += model[word[2]]
+
+    meaning2 = np.zeros(model.vectors.shape[1])
+    for word in tags2:
+        if word[2] in model:
+            meaning2 += model[word[2]]
+
+    features[6] = np.linalg.norm(meaning1 - meaning2)
 
     return features
 
@@ -265,16 +316,19 @@ def readData():
     testFeat = []
     testClass = [0] * 1725
 
+    print "Training Phase"
+
     f = open("msr_paraphrase_train.txt", "r")
     f.readline() # ignore header
     for i in range(0,4076):
         tokens = f.readline().strip().split('\t')
         trainClass[i] = int(tokens[0])
         features = computeSentenceSimilarityFeatures(tokens[3], tokens[4])
-        #features.extend(computeSemanticSimilarityFeatures(tokens[3], tokens[4]))
+        features.extend(computeSemanticSimilarityFeatures(tokens[3], tokens[4]))
 
         trainFeat.append(features)
 
+        print i, 4076
         #if i % 10 == 9:
             #print("Dump Similarity Table")
             #pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
@@ -283,6 +337,7 @@ def readData():
     #pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
 
 
+    print "Testing phase"
 
     f = open("msr_paraphrase_test.txt", "r")
     f.readline() # ignore header
@@ -291,10 +346,11 @@ def readData():
         testClass[i] = int(tokens[0])
 
         features = computeSentenceSimilarityFeatures(tokens[3], tokens[4])
-        #features.extend(computeSemanticSimilarityFeatures(tokens[3], tokens[4]))
+        features.extend(computeSemanticSimilarityFeatures(tokens[3], tokens[4]))
 
         testFeat.append(features)
 
+        print i, 1725
         #if i % 10 == 9:
             #print("Dump Similarity Table")
             #pickle.dump(semanticsimilarity_lookuptable, open('semanticsimilarity_lookuptable.pkl', 'wb'))
