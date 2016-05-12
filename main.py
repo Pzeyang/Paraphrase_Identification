@@ -4,11 +4,6 @@ from nltk.translate.bleu_score import sentence_bleu
 from nltk.util import skipgrams
 from nltk.corpus import wordnet
 import math
-from sklearn import neighbors
-from sklearn import svm
-from sklearn import linear_model
-from keras.layers.core import Dense, Activation
-from keras.models import Sequential
 from treetagger import TreeTagger
 from itertools import product
 import numpy as np
@@ -17,113 +12,7 @@ import pickle
 import text2int as t2i
 import copy
 import distribFeat
-
-def combinations(n, k):
-    f = math.factorial
-    return f(n) / (f(k) * f(n - k))
-
-# Majority voting to determine class
-def learnAll(trainFeat, trainClass, testFeat):
-    vote1 = learnSVM(trainFeat, trainClass, testFeat)
-    vote2 = learnKNN(trainFeat, trainClass, testFeat)
-    vote3 = learnMaxEnt(trainFeat, trainClass, testFeat)
-    res = [0] * len(testFeat)
-    for i in range(0, len(testFeat)):
-        if vote1[i] + vote2[i] + vote3[i] > 1:
-            res[i] = 1
-    return res
-
-def learnSVM(trainFeat, trainClass, testFeat):
-    model = svm.SVC()
-    model.fit(trainFeat, trainClass)
-    return model.predict(testFeat)
-
-def learnKNN(trainFeat, trainClass, testFeat):
-    model = neighbors.KNeighborsClassifier(15, weights='distance')
-    model.fit(trainFeat, trainClass)
-    return model.predict(testFeat)
-
-def learnMaxEnt(trainFeat, trainClass, testFeat):
-    model = linear_model.LogisticRegression(n_jobs=-1)
-    model.fit(trainFeat, trainClass)
-    return model.predict(testFeat)
-
-def learnNN(trainFeat, trainClass, testFeat):
-    hn = 20
-    model = Sequential()
-    model.add(Dense(input_dim = len(trainFeat[0]), output_dim = hn))
-    model.add(Activation('sigmoid'))
-    model.add(Dense(1)) # output layer
-    model.add(Activation('softmax'))
-    model.compile(loss='mean_squared_error', optimizer='sgd')
-
-    model.fit(trainFeat, trainClass, nb_epoch=2)
-    return model.predict_classes(testFeat)
-
-#paraphraseMap = pickle.load(open("paraphraseMap", "rb"))
-#notParaphrMap = pickle.load(open("notParaphrMap", "rb"))
-# Comprising sage advice from:
-# http://www.kozareva.com/papers/fintalKozareva.pdf
-# http://web.science.mq.edu.au/~rdale/publications/papers/2006/swan-final.pdf
-def computeSentenceSimilarityFeatures(sentence1, sentence2):
-    features = [0] * 7
-    tokenizer = RegexpTokenizer(r'\w+')
-    words1 = tokenizer.tokenize(sentence1)
-    words2 = tokenizer.tokenize(sentence2)
-    n = len(words1)
-    m = len(words2)
-
-    # word overlap features
-    count = 0 # num of same words in sentence
-    for word1 in words1:
-        for word2 in words2:
-            if word1 == word2:
-                count += 1
-
-    # TODO: Make it symmetric (improvement?)
-    features[0] = count / n # "precision"
-    features[1] = count / m # "recall"
-
-    features[2] = sentence_bleu([sentence1], sentence2)
-    features[3] = sentence_bleu([sentence2], sentence1)
-
-    # Obtain pairs of adjacent words
-    skipgrams1 = skipgrams(words1, 2, 0)
-    skipgrams2 = skipgrams(words2, 2, 0)
-
-    count = 0
-    for gram1 in skipgrams1:
-        for gram2 in skipgrams2:
-            if gram1 == gram2:
-                count += 1
-
-    features[4] = count / combinations(n, count)
-    features[5] = count / combinations(m, count)
-
-
-    if (n > m):
-        features[6] = m / n
-    else:
-        features[6] = n / m
-
-    """count = 0
-    for word2 in words2:
-        p = paraphraseMap[word2] if word2 in paraphraseMap else 0
-        q = notParaphrMap[word2] if word2 in notParaphrMap else 0
-        if q == 0:
-            kl = 1
-        elif p == 0:
-            kl = 0
-        else:
-            kl = p * math.log(p/q) + (1-p) * math.log((1-p)/(1-q))
-        for word1 in sentence1:
-            if word1 == word2:
-                count += kl
-    features[7] = count / n
-    features[8] = count / m"""
-
-    return features
-
+import learnModels
 
 # Uses treetagger-python (Installation https://github.com/miotto/treetagger-python ; http://www.cis.uni-muenchen.de/~schmid/tools/TreeTagger/)
 #try:
@@ -304,8 +193,8 @@ def readData():
 
     return trainFeat, trainClass, testFeat, testClass
 
-#trainFeat, trainClass, testFeat, testClass = distribFeat.getData()
-trainFeat, trainClass, testFeat, testClass = readData()
+trainFeat, trainClass, testFeat, testClass = distribFeat.getData()
+#trainFeat, trainClass, testFeat, testClass = readData()
 #pickle.dump(trainFeat, open('trainFeat', 'wb'))
 #pickle.dump(trainClass, open('trainClass', 'wb'))
 #pickle.dump(testFeat, open('testFeat', 'wb'))
@@ -314,10 +203,12 @@ trainFeat, trainClass, testFeat, testClass = readData()
 #trainClass = pickle.load(open('trainClass', 'rb'))
 #testFeat = pickle.load(open('testFeat', 'rb'))
 #testClass = pickle.load(open('testClass', 'rb'))
-predictedClass = learnSVM(trainFeat, trainClass, testFeat)
+predictedClass = learnModels.SVM(trainFeat, trainClass, testFeat)
 
 count = 0
 for i in range(0,1725):
+    if predictedClass[i] > 0 and predictedClass[i] < 1:
+        print(predictedClass[i])
     if testClass[i] == predictedClass[i]:
         count += 1
 print(count/1725)
