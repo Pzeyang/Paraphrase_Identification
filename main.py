@@ -193,8 +193,8 @@ def readData():
 
     return trainFeat, trainClass, testFeat, testClass
 
-trainFeat, trainClass, testFeat, testClass = distribFeat.getData()
-#trainFeat, trainClass, testFeat, testClass = readData()
+#trainFeat, trainClass, testFeat, testClass = distribFeat.getData()
+trainFeat, trainClass, testFeat, testClass = readData()
 #pickle.dump(trainFeat, open('trainFeat', 'wb'))
 #pickle.dump(trainClass, open('trainClass', 'wb'))
 #pickle.dump(testFeat, open('testFeat', 'wb'))
