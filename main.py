@@ -68,8 +68,6 @@ predictedClass = learnModels.SVM(trainFeat, trainClass, testFeat)
 
 count = 0
 for i in range(0,1725):
-    if predictedClass[i] > 0 and predictedClass[i] < 1:
-        print(predictedClass[i])
     if testClass[i] == predictedClass[i]:
         count += 1
 print(count/1725)
