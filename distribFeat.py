@@ -3,11 +3,14 @@ import pickle
 import numpy
 import math
 from nltk.tokenize import RegexpTokenizer
-from sklearn.decomposition import NMF
+from sklearn.decomposition import NMF, TruncatedSVD
+import sentenceFeatures
 
+# Obtain distributional features ((2 * K) in number)
+# IMPORTANT: both training and test set must be present in sentences
 # sentences is an array of tokenized sentences (matrix of words, basically)
-# K is the number of distributional features we'll have at the end
-def distribFeat(sentences, K):
+# fullSent is the untokenized version
+def distribFeat(fullSent, sentences, K):
     paraphraseMap = pickle.load(open("paraphraseMap", "rb"))
     notParaphrMap = pickle.load(open("notParaphrMap", "rb"))
 
@@ -37,9 +40,13 @@ def distribFeat(sentences, K):
                 M[uniqWords.index(word)][i] += kl
 
     # Step 2: Matrix factorization
-    factory = NMF(n_components = 100)
-    factory.fit_transform(M) # M = W*H , returns W, which we don't need
+    #factory = TruncatedSVD(n_components = K)
+    factory = NMF(n_components = K, max_iter=2000)
+    W = factory.fit_transform(M) # M = W*H , returns W, which we don't need
     H = factory.components_ # should be size K * n
+    print(M.shape)
+    print(W.shape)
+    print(H.shape)
 
     #Step 3: obtain feature set for paraphrase pair
     features = []
@@ -49,6 +56,7 @@ def distribFeat(sentences, K):
         for j in range(0, K):
             feat[j] = H[j][i] + H[j][i + 1]
             feat[j * 2] = abs(H[j][i] - H[j][i + 1])
+        #feat.extend(sentenceFeatures.compute(fullSent[i],fullSent[i+1]))
         i += 2 # step to next pair of sentences
         features.append(feat)
 
@@ -59,26 +67,35 @@ def getData():
     f = open("msr_paraphrase_train.txt", "r")
     f.readline()
     sentences = []
+    sentencesWords = []
     trainClass = [0] * 4076
     for i in range(0,4076):
         tokens = f.readline().strip().split('\t')
         trainClass[i] = int(tokens[0])
-        sentences.append(tokenizer.tokenize(tokens[3].lower()))
-        sentences.append(tokenizer.tokenize(tokens[4].lower()))
+        #sentences.append(tokens[3].lower())
+        #sentences.append(tokens[4].lower())
+        sentencesWords.append(tokenizer.tokenize(tokens[3].lower()))
+        sentencesWords.append(tokenizer.tokenize(tokens[4].lower()))
 
     f.close()
-    trainFeat = distribFeat(sentences, 100)
+    #trainFeat = distribFeat(sentences, sentencesWords, 500)
 
     f = open("msr_paraphrase_test.txt", "r")
     f.readline()
-    sentences = []
+    #sentences = []
+    #sentencesWords = []
     testClass = [0] * 1725
     for i in range(0,1725):
         tokens = f.readline().strip().split('\t')
         testClass[i] = int(tokens[0])
-        sentences.append(tokenizer.tokenize(tokens[3].lower()))
-        sentences.append(tokenizer.tokenize(tokens[4].lower()))
+        #sentences.append(tokens[3].lower())
+        #sentences.append(tokens[4].lower())
+        sentencesWords.append(tokenizer.tokenize(tokens[3].lower()))
+        sentencesWords.append(tokenizer.tokenize(tokens[4].lower()))
 
     f.close()
-    testFeat = distribFeat(sentences, 100)
+    allFeat = distribFeat(sentences, sentencesWords, 50)
+    print(len(allFeat))
+    trainFeat = allFeat[:4076]
+    testFeat = allFeat[4076:]
     return trainFeat, trainClass, testFeat, testClass

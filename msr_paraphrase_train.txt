@@ -4075,3 +4075,7 @@
 1	747160	747144	"We have concluded that the outlook for price stability over the medium term has improved significantly since our last decision to lower interest rates," Duisenberg said.	In a statement, the ECB said the outlook for price stability over the medium term had "improved significantly" since its last decision to lower interest rates in March.
 1	2539933	2539850	The notification was first reported Friday by MSNBC.	MSNBC.com first reported the CIA request on Friday.
 0	453575	453448	The 30-year bond US30YT=RR rose 22/32 for a yield of 4.31 percent, versus 4.35 percent at Wednesday's close.	The 30-year bond US30YT=RR grew 1-3/32 for a yield of 4.30 percent, down from 4.35 percent late Wednesday.
+0	-1	-1	I like green apples.	I don't like green apples.
+0	-1	-1	I love the sweet sounds of a violin.	I hate the annoying sounds of a violin.
+1	-1	-1	I go running in the park daily.	I go running in the park every day.
+1	-1	-1	I very much enjoy hearing birds sing.	I find it very satisfying to hear birds singing.
