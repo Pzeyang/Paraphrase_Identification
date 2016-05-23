@@ -20,7 +20,7 @@ def readData():
         tokens = f.readline().strip().split('\t')
         trainClass[i] = int(tokens[0])
         features = sentenceFeatures.computeSimple(tokens[3], tokens[4])
-        features.extend(sentenceFeatures.computeSemantics(tokens[3], tokens[4]))
+        #features.extend(sentenceFeatures.computeSemantics(tokens[3], tokens[4]))
 
         trainFeat.append(features)
 
@@ -41,7 +41,7 @@ def readData():
         testClass[i] = int(tokens[0])
 
         features = sentenceFeatures.computeSimple(tokens[3], tokens[4])
-        features.extend(sentenceFeatures.computeSemantics(tokens[3], tokens[4]))
+        #features.extend(sentenceFeatures.computeSemantics(tokens[3], tokens[4]))
 
         testFeat.append(features)
 

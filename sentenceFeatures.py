@@ -13,58 +13,99 @@ import pickle
 import word2vec
 import math
 import os
+import zss
+import StanfordDependencies
+from bllipparser import RerankingParser, Tree
 
 def combinations(n, k):
     f = math.factorial
     return f(n) / (f(k) * f(n - k))
 
+def getChildren(node):
+    return node.subtrees()
+
+def getLabel(node):
+    return node.label
+
+def labelDist(label1, label2):
+    if label1 == label2:
+        return 0
+    else:
+        return 1
+
+def dependencyRelations(tree):
+    rez = []
+    depend = sdc.convert_tree(str(tree))
+    for tok in depend:
+        if tok.head > 0:
+            rez.append((depend[tok.head-1].form, tok.form))
+    return rez
+
+rrp = RerankingParser.fetch_and_load('WSJ+Gigaword-v2')
+sdc = StanfordDependencies.get_instance(backend='subprocess')
+
 # Comprising sage advice from:
 # http://www.kozareva.com/papers/fintalKozareva.pdf
 # http://web.science.mq.edu.au/~rdale/publications/papers/2006/swan-final.pdf
 def computeSimple(sentence1, sentence2):
-    features = [0] * 7
+    features = [0] * 10
     tokenizer = RegexpTokenizer(r'\w+')
     words1 = tokenizer.tokenize(sentence1)
     words2 = tokenizer.tokenize(sentence2)
     n = len(words1)
     m = len(words2)
 
-    # word overlap features
+    # word overlap - 'unigram'
     count = 0 # num of same words in sentence
     for word1 in words1:
-        for word2 in words2:
-            if word1 == word2:
-                count += 1
-
-    # TODO: Make it symmetric (improvement?)
+        if word1 in words2:
+            count += 1
+    # A symmetric measure is worse for some reason
     features[0] = count / n # "precision"
     features[1] = count / m # "recall"
 
-    features[2] = sentence_bleu([sentence1], sentence2)
-    features[3] = sentence_bleu([sentence2], sentence1)
-
-    # Obtain pairs of adjacent words
+    # Obtain pairs of adjacent words - 'bigram' overlap
     skipgrams1 = skipgrams(words1, 2, 0)
     skipgrams2 = skipgrams(words2, 2, 0)
+    sk2 = [] #skipgrams returns iterator, which is consumed after one traversal
+    for g in skipgrams2:
+        sk2.append(g)
 
     count = 0
     for gram1 in skipgrams1:
-        for gram2 in skipgrams2:
-            if gram1 == gram2:
-                count += 1
+        if gram1 in sk2:
+            count += 1
 
-    features[4] = count / combinations(n, count)
-    features[5] = count / combinations(m, count)
+    features[2] = count / (n - 1)
+    features[3] = count / (m - 1)
 
+    # BLEU recall and precision
+    features[4] = sentence_bleu([sentence1], sentence2)
+    features[5] = sentence_bleu([sentence2], sentence1)
 
+    # Difference of sentence length
     if (n > m):
         features[6] = m / n
     else:
         features[6] = n / m
 
+    # Create semantic tree, compute similarity
+    T1 = Tree(rrp.simple_parse(sentence1))
+    T2 = Tree(rrp.simple_parse(sentence2))
+    R1 = dependencyRelations(T1)
+    R2 = dependencyRelations(T2)
+    count = 0
+    for rel1 in R1:
+        for rel2 in R2:
+            if rel1 == rel2:
+                count += 1
+    features[7] = count / len(R1)
+    features[8] = count / len(R2)
+    features[9] = zss.simple_distance(T1, T2, getChildren, getLabel, labelDist)
+
     return features
 
-# Uses treetagger-python (Installation https://github.com/miotto/treetagger-python ; http://www.cis.uni-muenchen.de/~schmid/tools/TreeTagger/)
+"""# Uses treetagger-python (Installation https://github.com/miotto/treetagger-python ; http://www.cis.uni-muenchen.de/~schmid/tools/TreeTagger/)
 try:
     semanticsimilarity_lookuptable = pickle.load(open('semanticsimilarity_lookuptable.pkl', 'rb'))
 except Exception:
@@ -244,4 +285,4 @@ def computeSemantics(sentence1, sentence2):
     #features[1] = np.linalg.norm(meaning1 + meaning2)
 
     return features
-
+"""
