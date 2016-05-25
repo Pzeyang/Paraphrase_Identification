@@ -19,6 +19,7 @@ import copy
 import word2vec
 import os
 import scipy.spatial
+from munkres import Munkres
 
 def combinations(n, k):
     f = math.factorial
@@ -148,7 +149,7 @@ print model.vocab
 print "Finish"
 
 def computeSemanticSimilarityFeatures(sentence1, sentence2):
-    features = [0] * 8
+    features = [0] * 9
 
     # Maybe: Word2Vec and Bipartite
 
@@ -296,6 +297,29 @@ def computeSemanticSimilarityFeatures(sentence1, sentence2):
     diffMeaning = meaning1 - meaning2
     features[6] = np.linalg.norm(diffMeaning)
     features[7] = scipy.spatial.distance.cosine(meaning1, meaning2)
+
+    similarityMatrix = [0] * len(tags1)
+    for index1, word1 in enumerate(tags1):
+        row = [0]*len(tags2)
+        for index2, word2 in enumerate(tags2):
+            similarityMax = 0
+            if len(word1) > 3 and len(word2) > 3:
+                for sense1, sense2 in product(word1[3], word2[3]):
+                    sim = wordnet.wup_similarity(sense1, sense2)
+                    similarityMax = max(similarityMax, sim)
+                similarityMax = 1 - similarityMax
+            else:
+                similarityMax = 1
+
+            row[index2] = similarityMax
+        similarityMatrix[index1] = row
+    m = Munkres()
+    totalCost = 0
+    indices = m.compute(similarityMatrix)
+    for row, column in indices:
+        totalCost += similarityMatrix[row][column]
+
+    features[8] = totalCost / len(indices)
 
     return features
 
