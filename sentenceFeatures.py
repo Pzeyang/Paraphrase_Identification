@@ -13,6 +13,8 @@ import pickle
 import word2vec
 import math
 import os
+from munkres import Munkres
+import scipy.spatial
 
 def combinations(n, k):
     f = math.factorial
@@ -36,7 +38,6 @@ def computeSimple(sentence1, sentence2):
             if word1 == word2:
                 count += 1
 
-    # TODO: Make it symmetric (improvement?)
     features[0] = count / n # "precision"
     features[1] = count / m # "recall"
 
@@ -57,10 +58,15 @@ def computeSimple(sentence1, sentence2):
     features[5] = count / combinations(m, count)
 
 
-    if (n > m):
+    """if (n > m):
         features[6] = m / n
     else:
-        features[6] = n / m
+        features[6] = n / m"""
+
+    if len(sentence1) > len(sentence2):
+        features[7] = len(sentence2) / len(sentence1)
+    else:
+        features[7] = len(sentence1) / len(sentence2)
 
     return features
 
@@ -83,9 +89,8 @@ model = word2vec.load(dir + '/text8.bin')
 print "Finish"
 
 def computeSemantics(sentence1, sentence2):
-    features = [0] * 7
-
-    # Maybe: Word2Vec and Bipartite
+def computeSemanticSimilarityFeatures(sentence1, sentence2):
+    features = [0] * 9
 
     if (sentence1 + sentence2) not in semanticsimilarity_lookuptable:
         def prepareSentence(sentence):
@@ -101,7 +106,6 @@ def computeSemantics(sentence1, sentence2):
     tags2 = copy.deepcopy(semanticsimilarity_lookuptable[sentence1 + sentence2][1])
 
     # Feature: noun/web semantic similarity
-
     # Get Synonym set
     def synSet(tags):
         for word in tags:
@@ -229,19 +233,32 @@ def computeSemantics(sentence1, sentence2):
         if word[2] in model:
             meaning2 += model[word[2]]
 
-    # Feature: Word2Vec (Nouns+Verbs)
-    meaning1 = np.zeros(model.vectors.shape[1])
-    for word in tags1:
-        if word[2] in model:
-            meaning1 += model[word[2]]
+    diffMeaning = meaning1 - meaning2
+    features[6] = np.linalg.norm(diffMeaning)
+    features[7] = scipy.spatial.distance.cosine(meaning1, meaning2)
 
-    meaning2 = np.zeros(model.vectors.shape[1])
-    for word in tags2:
-        if word[2] in model:
-            meaning2 += model[word[2]]
+    similarityMatrix = [0] * len(tags1)
+    for index1, word1 in enumerate(tags1):
+        row = [0]*len(tags2)
+        for index2, word2 in enumerate(tags2):
+            similarityMax = 0
+            if len(word1) > 3 and len(word2) > 3:
+                for sense1, sense2 in product(word1[3], word2[3]):
+                    sim = wordnet.wup_similarity(sense1, sense2)
+                    similarityMax = max(similarityMax, sim)
+                similarityMax = 1 - similarityMax
+            else:
+                similarityMax = 1
 
-    features[6] = np.linalg.norm(meaning1 - meaning2)
-    #features[1] = np.linalg.norm(meaning1 + meaning2)
+            row[index2] = similarityMax
+        similarityMatrix[index1] = row
+    m = Munkres()
+    totalCost = 0
+    indices = m.compute(similarityMatrix)
+    for row, column in indices:
+        totalCost += similarityMatrix[row][column]
+
+    features[8] = totalCost / len(indices)
 
     return features
 

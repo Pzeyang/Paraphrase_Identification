@@ -69,7 +69,7 @@ def learnNN(trainFeat, trainClass, testFeat):
 # http://www.kozareva.com/papers/fintalKozareva.pdf
 # http://web.science.mq.edu.au/~rdale/publications/papers/2006/swan-final.pdf
 def computeSentenceSimilarityFeatures(sentence1, sentence2):
-    features = [0] * 7
+    features = [0] * 8
     tokenizer = RegexpTokenizer(r'\w+')
     words1 = tokenizer.tokenize(sentence1)
     words2 = tokenizer.tokenize(sentence2)
@@ -104,10 +104,15 @@ def computeSentenceSimilarityFeatures(sentence1, sentence2):
     features[5] = count / combinations(m, count)
 
 
-    if (n > m):
+    """if (n > m):
         features[6] = m / n
     else:
-        features[6] = n / m
+        features[6] = n / m"""
+
+    if len(sentence1) > len(sentence2):
+        features[7] = len(sentence2) / len(sentence1)
+    else:
+        features[7] = len(sentence1) / len(sentence2)
 
     """count = 0
     for word2 in words2:
@@ -150,8 +155,6 @@ print "Finish"
 
 def computeSemanticSimilarityFeatures(sentence1, sentence2):
     features = [0] * 9
-
-    # Maybe: Word2Vec and Bipartite
 
     if (sentence1 + sentence2) not in semanticsimilarity_lookuptable:
         def prepareSentence(sentence):
